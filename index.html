@@ -25,17 +25,32 @@
     button:disabled{ opacity:0.6; cursor:not-allowed; }
     .help{ font-size:12px; color:var(--muted); }
     .status{ margin-top:8px; font-size:13px; }
-    table{ width:100%; border-collapse: collapse; }
-    th, td{ padding:10px; border-bottom:1px solid #1f2937; font-size:14px; text-align:left; vertical-align:top; }
-    th{ position:sticky; top:70px; background:var(--card); z-index:5; }
-    .pill{ padding:2px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:var(--muted); }
+
+    /* 테이블 기본 */
+    table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+    col.checkbox{ width:44px; }
+    col.date{ width:150px; }
+    col.odo{ width:120px; }
+    col.item{ width:220px; }
+    col.cost{ width:130px; }
+    col.note{ width:220px; }
+    col.reason{ width:220px; }
+    col.ref{ width:260px; }
+    col.next{ width:260px; }
+
+    th, td{ padding:12px 10px; border-bottom:1px solid #1f2937; text-align:left; vertical-align:top; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* 헤더 전체 주황색 + 더 크게 */
+    thead th{ font-family:'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', sans-serif; color:#ff8c00; font-weight:800; font-size:18px; }
+    /* 본문 글자 크기 */
+    tbody td{ font-size:14px; }
+
+    th.sticky{ position:sticky; top:70px; background:var(--card); z-index:5; }
     .right{ text-align:right; }
-    .nowrap{ white-space:nowrap; }
-    .highlight{ font-family: 'Malgun Gothic', sans-serif; color: orange; font-weight:bold; }
+
     .sidebar{ width:260px; border-left:1px solid #1f2937; padding:20px; background:#111827; }
     .sidebar h2{ margin:0; font-size:16px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .sidebar .gear{ width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; background:#0b1220; border:1px solid #1f2937; cursor:pointer; }
-    .recent{ background:#0b1220; border-radius:10px; padding:10px; font-size:14px; margin-top:10px; }
+    .recent{ background:#0b1220; border-radius:10px; padding:10px; font-size:14px; margin-top:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     /* 설정 모달 */
     .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:100; backdrop-filter: blur(2px); }
@@ -107,17 +122,28 @@
       </div>
       <div style="overflow:auto;">
         <table id="table">
+          <colgroup>
+            <col class="checkbox" />
+            <col class="date" />
+            <col class="odo" />
+            <col class="item" />
+            <col class="cost" />
+            <col class="note" />
+            <col class="reason" />
+            <col class="ref" />
+            <col class="next" />
+          </colgroup>
           <thead>
             <tr>
-              <th><input type="checkbox" id="checkAll"></th>
-              <th class="highlight">날짜</th>
-              <th class="highlight">키로수</th>
-              <th class="highlight">항목</th>
-              <th class="right">금액</th>
-              <th>비고</th>
-              <th>사유</th>
-              <th>참고사항</th>
-              <th>정비 예정 사항</th>
+              <th class="sticky"><input type="checkbox" id="checkAll"></th>
+              <th class="sticky">날짜</th>
+              <th class="sticky">키로수</th>
+              <th class="sticky">항목</th>
+              <th class="sticky right">금액</th>
+              <th class="sticky">비고</th>
+              <th class="sticky">사유</th>
+              <th class="sticky">참고사항</th>
+              <th class="sticky">정비 예정 사항</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -290,12 +316,7 @@
         setTimeout(()=>{ closeSettings(); loadEntries(); }, 500);
       });
 
-      // URL이 없으면 설정 모달 자동 표시
-      if(!localStorage.getItem('carlog:url')){
-        openSettings();
-      } else {
-        loadEntries();
-      }
+      if(!localStorage.getItem('carlog:url')){ openSettings(); } else { loadEntries(); }
     });
   </script>
 </body>
