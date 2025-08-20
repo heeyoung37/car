@@ -13,7 +13,6 @@
     .container{ max-width:1000px; margin:20px auto; padding:0 16px 40px; }
     .card{ background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
     .grid{ display:grid; gap:12px; }
-    .grid.cols-2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     .grid.cols-3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
     .row{ display:flex; gap:8px; align-items:center; }
     label{ font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
@@ -32,7 +31,15 @@
     .pill{ padding:2px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:var(--muted); }
     .right{ text-align:right; }
     .nowrap{ white-space:nowrap; }
-    .hidden{ display:none; }
+
+    /* 설정 버튼 */
+    .fab{ position: fixed; right: 18px; bottom: 18px; width: 52px; height: 52px; border-radius: 999px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#22d3ee,#3b82f6); color:#00131a; border:none; box-shadow:0 10px 24px rgba(0,0,0,0.35); font-weight:800; font-size:18px; }
+
+    /* 모달 */
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter: blur(2px); }
+    .modal{ width:min(560px, 92vw); background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
+    .modal h2{ margin:0 0 8px; font-size:18px; }
+    .modal .row-end{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
   </style>
 </head>
 <body>
@@ -118,15 +125,63 @@
     </section>
   </main>
 
+  <!-- 설정 플로팅 버튼 -->
+  <button class="fab" id="openSettings" title="설정">⚙</button>
+
+  <!-- 설정 모달 -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <h2>연결 설정</h2>
+      <div class="grid cols-3">
+        <div style="grid-column: span 3;">
+          <label>Apps Script 웹앱 URL</label>
+          <input id="cfgUrl" placeholder="예) https://script.google.com/macros/s/AKfycb.../exec" />
+        </div>
+        <div style="grid-column: span 3;">
+          <label>API Key (선택)</label>
+          <input id="cfgKey" placeholder="스크립트 속성에 설정한 값" />
+        </div>
+      </div>
+      <div class="row-end">
+        <button id="closeSettings">닫기</button>
+        <button class="primary" id="saveCfgBtn">저장</button>
+      </div>
+      <div class="status" id="cfgStatus"></div>
+    </div>
+  </div>
+
   <script>
     const qs = (s,root=document)=> root.querySelector(s);
     const qsa = (s,root=document)=> [...root.querySelectorAll(s)];
 
     function setStatus(el,msg,type='info'){
+      if(!el) return;
       el.textContent = msg;
       el.style.color = type==='error' ? '#fca5a5' : (type==='ok' ? '#86efac' : '#94a3b8');
     }
 
+    // === 설정 저장/불러오기 ===
+    function loadConfig(){
+      return {
+        url: localStorage.getItem('carlog:url') || '',
+        key: localStorage.getItem('carlog:key') || ''
+      };
+    }
+    function saveConfig({url, key}){
+      localStorage.setItem('carlog:url', (url||'').trim());
+      localStorage.setItem('carlog:key', (key||'').trim());
+    }
+
+    function openSettings(){
+      const {url,key} = loadConfig();
+      qs('#cfgUrl').value = url;
+      qs('#cfgKey').value = key;
+      qs('#settingsModal').style.display = 'flex';
+      setStatus(qs('#cfgStatus'), '브라우저에만 저장됩니다.');
+    }
+    function closeSettings(){ qs('#settingsModal').style.display = 'none'; }
+
+    // === 폼 직렬화 ===
     function serializeForm(){
       const d = qs('#fDate').value;
       const item = qs('#fItem').value.trim();
@@ -136,11 +191,11 @@
       const note = qs('#fNote').value.trim();
       const ref = qs('#fRef').value.trim();
       const next = qs('#fNext').value.trim();
-
       if(!d || !item) throw new Error('날짜와 항목은 필수입니다.');
       const dateStr = new Date(d).toISOString().slice(0,10);
-
+      const {key} = loadConfig();
       return {
+        apiKey: key || undefined,
         '날짜': dateStr,
         '키로수': odo || '',
         '항목': item,
@@ -153,49 +208,33 @@
     }
 
     async function addEntry(){
-      const body = serializeForm();
       setStatus(qs('#formStatus'),'저장 중...');
       qs('#addBtn').disabled = true;
       try{
-        const url = localStorage.getItem('carlog:url');
-        if(!url) throw new Error('Apps Script 웹앱 URL이 설정되지 않았습니다.');
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
+        const {url} = loadConfig();
+        if(!url) throw new Error('설정에서 웹앱 URL을 먼저 저장하세요. (오른쪽 아래 ⚙)');
+        const body = serializeForm();
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
         const data = await res.json();
         if(!data.ok) throw new Error(data.error || '저장 실패');
         setStatus(qs('#formStatus'),'저장 완료!','ok');
         qsa('input[type="text"], input[type="number"], textarea').forEach(el=> el.value='');
         await loadEntries();
-      }catch(err){
-        setStatus(qs('#formStatus'),'저장 실패: '+err.message,'error');
-      }finally{
-        qs('#addBtn').disabled = false;
-      }
+      }catch(err){ setStatus(qs('#formStatus'),'저장 실패: '+err.message,'error'); }
+      finally{ qs('#addBtn').disabled = false; }
     }
 
-    function fmtMoney(x){
-      if(!x) return '';
-      const n = Number(x);
-      return isNaN(n) ? x : n.toLocaleString('ko-KR');
-    }
-
-    function fmtDate(v){
-      if(!v) return '';
-      const d = new Date(v);
-      return isNaN(d) ? v : d.toISOString().slice(0,10);
-    }
+    function fmtMoney(x){ if(!x) return ''; const n = Number(String(x).replace(/[^\d.-]/g,'')); return isNaN(n) ? x : n.toLocaleString('ko-KR'); }
+    function fmtDate(v){ if(!v) return ''; const d = new Date(v); return isNaN(d) ? v : d.toISOString().slice(0,10); }
 
     async function loadEntries(){
       const tbody = qs('#table tbody');
       tbody.innerHTML = '';
       qs('#count').textContent = '0';
       try{
-        const url = localStorage.getItem('carlog:url');
-        if(!url) throw new Error('Apps Script 웹앱 URL이 설정되지 않았습니다.');
-        const res = await fetch(url+'?list=1');
+        const {url,key} = loadConfig();
+        if(!url) throw new Error('설정에서 웹앱 URL을 먼저 저장하세요. (오른쪽 아래 ⚙)');
+        const res = await fetch(url + '?list=1');
         const data = await res.json();
         if(!data.ok) throw new Error(data.error || '목록 불러오기 실패');
         const rows = data.data || [];
@@ -204,42 +243,47 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="nowrap">${fmtDate(r['날짜'])}</td>
-            <td class="nowrap">${r['키로수']}</td>
-            <td>${r['항목']}</td>
+            <td class="nowrap">${r['키로수'] ?? ''}</td>
+            <td>${r['항목'] ?? ''}</td>
             <td class="right">${fmtMoney(r['금액'])}</td>
-            <td>${r['비고']}</td>
-            <td>${r['사유']}</td>
-            <td>${r['참고사항']}</td>
-            <td>${r['정비 예정 사항']}</td>`;
+            <td>${r['비고'] ?? ''}</td>
+            <td>${r['사유'] ?? ''}</td>
+            <td>${r['참고사항'] ?? ''}</td>
+            <td>${r['정비 예정 사항'] ?? ''}</td>`;
           tbody.appendChild(tr);
         });
         setStatus(qs('#formStatus'),'불러오기 완료','ok');
-      }catch(err){
-        setStatus(qs('#formStatus'),'불러오기 실패: '+err.message,'error');
-      }
+      }catch(err){ setStatus(qs('#formStatus'),'불러오기 실패: '+err.message,'error'); }
     }
 
     function exportCSV(){
       const rows = [["날짜","키로수","항목","금액","비고","사유","참고사항","정비 예정 사항"]];
-      qsa('#table tbody tr').forEach(tr=>{
-        const cols = qsa('td', tr).map(td=> '"'+ td.textContent.replaceAll('"','""') +'"');
-        rows.push(cols);
-      });
+      qsa('#table tbody tr').forEach(tr=>{ const cols = qsa('td', tr).map(td=> '"'+ td.textContent.replaceAll('"','""') +'"'); rows.push(cols); });
       const csv = rows.map(r=> r.join(',')).join('\n');
       const blob = new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '차계부_정비내역.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
+      a.href = URL.createObjectURL(blob); a.download = '차계부_정비내역.csv'; a.click(); URL.revokeObjectURL(a.href);
     }
 
     window.addEventListener('DOMContentLoaded', () => {
       qs('#addBtn').addEventListener('click', addEntry);
       qs('#loadBtn').addEventListener('click', loadEntries);
       qs('#exportBtn').addEventListener('click', exportCSV);
+      qs('#openSettings').addEventListener('click', openSettings);
+      qs('#closeSettings').addEventListener('click', closeSettings);
+      qs('#saveCfgBtn').addEventListener('click', ()=>{
+        saveConfig({ url: qs('#cfgUrl').value, key: qs('#cfgKey').value });
+        setStatus(qs('#cfgStatus'),'설정이 저장되었습니다.','ok');
+        setTimeout(closeSettings, 600);
+        loadEntries();
+      });
 
-      if(localStorage.getItem('carlog:url')) loadEntries();
+      // 첫 방문 시 설정 안내 모달 자동 표시 (URL 없으면)
+      if(!localStorage.getItem('carlog:url')){
+        openSettings();
+      } else {
+        loadEntries();
+      }
     });
   </script>
 </body>
