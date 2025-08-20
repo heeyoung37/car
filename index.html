@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>차계부 정비내역 웹앱</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#94a3b8; --accent:#22d3ee; }
+    *{ box-sizing: border-box; }
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; background:var(--bg); color:var(--ink); }
+    header{ padding:20px; border-bottom:1px solid #1f2937; position:sticky; top:0; background:linear-gradient(180deg,#0f172a 0%, rgba(15,23,42,0.9) 100%); backdrop-filter: blur(6px); z-index:10; }
+    h1{ margin:0 0 8px; font-size:20px; letter-spacing:0.3px; }
+    .container{ max-width:1000px; margin:20px auto; padding:0 16px 40px; }
+    .card{ background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    .grid{ display:grid; gap:12px; }
+    .grid.cols-2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid.cols-3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .row{ display:flex; gap:8px; align-items:center; }
+    label{ font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
+    input, select, textarea{ width:100%; padding:10px 12px; background:#0b1220; color:var(--ink); border:1px solid #1f2937; border-radius:10px; outline:none; }
+    input:focus, textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 4px rgba(34,211,238,0.1); }
+    textarea{ min-height:64px; resize:vertical; }
+    .btns{ display:flex; flex-wrap:wrap; gap:10px; }
+    button{ padding:10px 14px; border-radius:12px; border:1px solid #1f2937; cursor:pointer; background:#0b1220; color:var(--ink); }
+    button.primary{ background: linear-gradient(135deg, #22d3ee, #3b82f6); border:none; color:#00131a; font-weight:700; }
+    button:disabled{ opacity:0.6; cursor:not-allowed; }
+    .help{ font-size:12px; color:var(--muted); }
+    .status{ margin-top:8px; font-size:13px; }
+    table{ width:100%; border-collapse: collapse; }
+    th, td{ padding:10px; border-bottom:1px solid #1f2937; font-size:14px; text-align:left; vertical-align:top; }
+    th{ position:sticky; top:70px; background:var(--card); z-index:5; }
+    .pill{ padding:2px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:var(--muted); }
+    .right{ text-align:right; }
+    .nowrap{ white-space:nowrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>🚗 차계부 정비내역 • 클라우드 저장</h1>
+      <div class="help">아래 설정에 Apps Script 웹앱 URL을 넣으면 <b>추가</b> 버튼으로 구글시트에 자동 저장됩니다.</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 설정 카드 -->
+    <section class="card" style="margin-bottom:16px;">
+      <div class="grid cols-3">
+        <div>
+          <label>https://script.google.com/macros/s/AKfycbyODcZ-GO_DerFcwvEF3EqriI8rZgMRxnAsb73q5WQiBhPfDWxA_KmZwo_35bOcc-Pn/exec</label>
+          <input id="cfgUrl" placeholder="예) https://script.google.com/macros/s/AKfycb.../exec" />
+        </div>
+        <div>
+          <label>API Key (선택)</label>
+          <input id="cfgKey" placeholder="스크립트 속성에 설정한 값" />
+        </div>
+        <div class="row" style="align-items:flex-end;">
+          <button class="primary" id="saveCfgBtn">설정 저장</button>
+          <span class="help">브라우저에만 저장됩니다.</span>
+        </div>
+      </div>
+      <div class="status" id="cfgStatus"></div>
+    </section>
+
+    <!-- 입력 폼 -->
+    <section class="card" style="margin-bottom:16px;">
+      <div class="grid cols-3">
+        <div>
+          <label>날짜 <span class="pill">필수</span></label>
+          <input type="date" id="fDate" />
+        </div>
+        <div>
+          <label>키로수</label>
+          <input type="number" id="fOdo" inputmode="numeric" placeholder="예) 67500" />
+        </div>
+        <div>
+          <label>항목 <span class="pill">필수</span></label>
+          <input type="text" id="fItem" placeholder="예) 엔진오일 교환" />
+        </div>
+      </div>
+      <div class="grid cols-3" style="margin-top:12px;">
+        <div>
+          <label>금액(원)</label>
+          <input type="number" id="fCost" inputmode="numeric" placeholder="예) 59900" />
+        </div>
+        <div>
+          <label>사유</label>
+          <input type="text" id="fReason" placeholder="예) 방전 / 소모품 교환 등" />
+        </div>
+        <div>
+          <label>비고</label>
+          <input type="text" id="fNote" placeholder="예) 매장/부품/오일 규격 등" />
+        </div>
+      </div>
+      <div class="grid" style="margin-top:12px;">
+        <div>
+          <label>참고사항</label>
+          <textarea id="fRef" placeholder="정비에 참고할 메모"></textarea>
+        </div>
+        <div>
+          <label>정비 예정 사항</label>
+          <textarea id="fNext" placeholder="다음 교환주기/예정 작업"></textarea>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:12px;">
+        <button class="primary" id="addBtn">추가</button>
+        <button id="loadBtn">목록 새로고침</button>
+        <button id="exportBtn">CSV 내보내기</button>
+        <span class="help">※ 저장이 안되면 설정의 URL이 맞는지, 웹앱 <b>권한</b>이 "모두"인지 확인하세요.</span>
+      </div>
+      <div class="status" id="formStatus"></div>
+    </section>
+
+    <!-- 목록 -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <div class="help">시트의 헤더(1행)는 다음과 일치해야 합니다: <b>날짜, 키로수, 항목, 금액, 비고, 사유, 참고사항, 정비 예정 사항</b></div>
+        <div class="pill"><span id="count">0</span> 건</div>
+      </div>
+      <div style="overflow:auto;">
+        <table id="table">
+          <thead>
+            <tr>
+              <th class="nowrap">날짜</th>
+              <th class="nowrap">키로수</th>
+              <th>항목</th>
+              <th class="right">금액</th>
+              <th>비고</th>
+              <th>사유</th>
+              <th>참고사항</th>
+              <th>정비 예정 사항</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const qs = (s,root=document)=> root.querySelector(s);
+    const qsa = (s,root=document)=> [...root.querySelectorAll(s)];
+
+    const store = {
+      load(){
+        return {
+          url: localStorage.getItem('carlog:url') || '',
+          key: localStorage.getItem('carlog:key') || ''
+        }
+      },
+      save({url,key}){
+        localStorage.setItem('carlog:url', url || '');
+        localStorage.setItem('carlog:key', key || '');
+      }
+    }
+
+    function setStatus(el,msg,type='info'){
+      el.textContent = msg;
+      el.style.color = type==='error' ? '#fca5a5' : (type==='ok' ? '#86efac' : '#94a3b8');
+    }
+
+    function getConfig(){
+      const {url,key} = store.load();
+      return { url: url.trim(), key: key.trim() };
+    }
+
+    function fillConfigInputs(){
+      const {url,key} = getConfig();
+      qs('#cfgUrl').value = url;
+      qs('#cfgKey').value = key;
+    }
+
+    function serializeForm(){
+      const d = qs('#fDate').value;
+      const item = qs('#fItem').value.trim();
+      const odo = qs('#fOdo').value;
+      const cost = qs('#fCost').value;
+      const reason = qs('#fReason').value.trim();
+      const note = qs('#fNote').value.trim();
+      const ref = qs('#fRef').value.trim();
+      const next = qs('#fNext').value.trim();
+
+      // 필수값
+      if(!d || !item) throw new Error('날짜와 항목은 필수입니다.');
+
+      // 날짜를 시트가 읽기 쉬운 YYYY-MM-DD로
+      const dateStr = new Date(d).toISOString().slice(0,10);
+
+      return {
+        apiKey: getConfig().key || undefined,
+        '날짜': dateStr,
+        '키로수': odo || '',
+        '항목': item,
+        '금액': cost || '',
+        '비고': note,
+        '사유': reason,
+        '참고사항': ref,
+        '정비 예정 사항': next,
+      };
+    }
+
+    async function addEntry(){
+      const cfg = getConfig();
+      if(!cfg.url){ setStatus(qs('#formStatus'),'설정에서 Apps Script 웹앱 URL을 먼저 저장하세요.','error'); return; }
+      const body = serializeForm();
+      setStatus(qs('#formStatus'),'저장 중...');
+      qs('#addBtn').disabled = true;
+      try{
+        const res = await fetch(cfg.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
+        if(!res.ok || !data.ok){ throw new Error(data.error || ('HTTP '+res.status)); }
+        setStatus(qs('#formStatus'),'저장 완료!','ok');
+        // 폼 리셋
+        qsa('input[type="text"], input[type="number"], textarea').forEach(el=> el.value='');
+        // 날짜는 유지
+        await loadEntries();
+      }catch(err){
+        setStatus(qs('#formStatus'),'저장 실패: '+err.message,'error');
+      }finally{
+        qs('#addBtn').disabled = false;
+      }
+    }
+
+    function fmtMoney(x){
+      if(x===null || x===undefined || x==='') return '';
+      const n = Number(String(x).replace(/[^\d.-]/g,''));
+      if(!isFinite(n)) return String(x);
+      return n.toLocaleString('ko-KR');
+    }
+
+    function fmtDate(v){
+      if(!v) return '';
+      try{
+        const d = new Date(v);
+        if(isNaN(d)) return String(v);
+        return d.toISOString().slice(0,10);
+      }catch{ return String(v); }
+    }
+
+    async function loadEntries(){
+      const cfg = getConfig();
+      const tbody = qs('#table tbody');
+      tbody.innerHTML = '';
+      qs('#count').textContent = '0';
+      if(!cfg.url){ setStatus(qs('#formStatus'),'설정에서 Apps Script 웹앱 URL을 먼저 저장하세요.','error'); return; }
+      setStatus(qs('#formStatus'),'불러오는 중...');
+      try{
+        const res = await fetch(cfg.url + '?list=1',{ method:'GET' });
+        const data = await res.json();
+        if(!data || !data.ok) throw new Error(data?.error || '목록 응답 오류');
+        const rows = data.data || [];
+        qs('#count').textContent = rows.length;
+        for(const r of rows){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="nowrap">${fmtDate(r['날짜'])}</td>
+            <td class="nowrap">${r['키로수'] ?? ''}</td>
+            <td>${r['항목'] ?? ''}</td>
+            <td class="right">${fmtMoney(r['금액'])}</td>
+            <td>${r['비고'] ?? ''}</td>
+            <td>${r['사유'] ?? ''}</td>
+            <td>${r['참고사항'] ?? ''}</td>
+            <td>${r['정비 예정 사항'] ?? ''}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+        setStatus(qs('#formStatus'),'불러오기 완료','ok');
+      }catch(err){
+        setStatus(qs('#formStatus'),'불러오기 실패: '+err.message,'error');
+      }
+    }
+
+    function exportCSV(){
+      const rows = [["날짜","키로수","항목","금액","비고","사유","참고사항","정비 예정 사항"]];
+      qsa('#table tbody tr').forEach(tr=>{
+        const cols = qsa('td', tr).map(td=> '"'+ String(td.textContent).replaceAll('"','""') +'"');
+        rows.push(cols);
+      });
+      const csv = rows.map(r=> r.join(',')).join('\n');
+      const blob = new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '차계부_정비내역.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // 이벤트 바인딩
+    window.addEventListener('DOMContentLoaded', () => {
+      fillConfigInputs();
+      qs('#saveCfgBtn').addEventListener('click', ()=>{
+        store.save({ url: qs('#cfgUrl').value, key: qs('#cfgKey').value });
+        setStatus(qs('#cfgStatus'),'설정이 저장되었습니다.','ok');
+      });
+      qs('#addBtn').addEventListener('click', addEntry);
+      qs('#loadBtn').addEventListener('click', loadEntries);
+      qs('#exportBtn').addEventListener('click', exportCSV);
+
+      // 자동 로드
+      const {url} = getConfig();
+      if(url) loadEntries();
+    });
+  </script>
+</body>
+</html>
