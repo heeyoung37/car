@@ -214,7 +214,7 @@
         const {url} = loadConfig();
         if(!url) throw new Error('설정에서 웹앱 URL을 먼저 저장하세요. (오른쪽 아래 ⚙)');
         const body = serializeForm();
-        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body)});
         const data = await res.json();
         if(!data.ok) throw new Error(data.error || '저장 실패');
         setStatus(qs('#formStatus'),'저장 완료!','ok');
