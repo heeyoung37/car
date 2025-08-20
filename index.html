@@ -7,11 +7,11 @@
   <style>
     :root { --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#94a3b8; --accent:#22d3ee; }
     *{ box-sizing: border-box; }
-    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; background:var(--bg); color:var(--ink); }
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; background:var(--bg); color:var(--ink); display:flex; }
     header{ padding:20px; border-bottom:1px solid #1f2937; position:sticky; top:0; background:linear-gradient(180deg,#0f172a 0%, rgba(15,23,42,0.9) 100%); backdrop-filter: blur(6px); z-index:10; }
     h1{ margin:0; font-size:20px; letter-spacing:0.3px; }
-    .container{ max-width:1000px; margin:20px auto; padding:0 16px 40px; }
-    .card{ background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    .container{ flex:1; max-width:1000px; margin:20px auto; padding:0 16px 40px; }
+    .card{ background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); margin-bottom:16px; }
     .grid{ display:grid; gap:12px; }
     .grid.cols-3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
     .row{ display:flex; gap:8px; align-items:center; }
@@ -31,27 +31,20 @@
     .pill{ padding:2px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:var(--muted); }
     .right{ text-align:right; }
     .nowrap{ white-space:nowrap; }
-
-    /* 설정 버튼 */
-    .fab{ position: fixed; right: 18px; bottom: 18px; width: 52px; height: 52px; border-radius: 999px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#22d3ee,#3b82f6); color:#00131a; border:none; box-shadow:0 10px 24px rgba(0,0,0,0.35); font-weight:800; font-size:18px; }
-
-    /* 모달 */
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter: blur(2px); }
-    .modal{ width:min(560px, 92vw); background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
-    .modal h2{ margin:0 0 8px; font-size:18px; }
-    .modal .row-end{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+    .highlight{ font-family: 'Malgun Gothic', sans-serif; color: orange; font-weight:bold; }
+    .sidebar{ width:260px; border-left:1px solid #1f2937; padding:20px; background:#111827; }
+    .sidebar h2{ margin-top:0; font-size:16px; }
+    .recent{ background:#0b1220; border-radius:10px; padding:10px; font-size:14px; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="container">
+  <div class="container">
+    <header>
       <h1>🚗 차계부 정비내역 • 클라우드 저장</h1>
-    </div>
-  </header>
+    </header>
 
-  <main class="container">
     <!-- 입력 폼 -->
-    <section class="card" style="margin-bottom:16px;">
+    <section class="card">
       <div class="grid cols-3">
         <div>
           <label>날짜 <span class="pill">필수</span></label>
@@ -93,8 +86,8 @@
       <div class="btns" style="margin-top:12px;">
         <button class="primary" id="addBtn">추가</button>
         <button id="loadBtn">목록 새로고침</button>
+        <button id="deleteBtn">선택 삭제</button>
         <button id="exportBtn">CSV 내보내기</button>
-        <span class="help">※ 저장이 안되면 Apps Script 웹앱 URL 및 권한 설정을 확인하세요.</span>
       </div>
       <div class="status" id="formStatus"></div>
     </section>
@@ -102,16 +95,17 @@
     <!-- 목록 -->
     <section class="card">
       <div class="row" style="justify-content:space-between; margin-bottom:8px;">
-        <div class="help">시트의 헤더(1행)는 <b>날짜, 키로수, 항목, 금액, 비고, 사유, 참고사항, 정비 예정 사항</b> 순서여야 합니다.</div>
+        <div class="help">시트의 헤더는 <b>날짜, 키로수, 항목, 금액, 비고, 사유, 참고사항, 정비 예정 사항</b></div>
         <div class="pill"><span id="count">0</span> 건</div>
       </div>
       <div style="overflow:auto;">
         <table id="table">
           <thead>
             <tr>
-              <th class="nowrap">날짜</th>
-              <th class="nowrap">키로수</th>
-              <th>항목</th>
+              <th><input type="checkbox" id="checkAll"></th>
+              <th class="highlight">날짜</th>
+              <th class="highlight">키로수</th>
+              <th class="highlight">항목</th>
               <th class="right">금액</th>
               <th>비고</th>
               <th>사유</th>
@@ -123,31 +117,12 @@
         </table>
       </div>
     </section>
-  </main>
+  </div>
 
-  <!-- 설정 플로팅 버튼 -->
-  <button class="fab" id="openSettings" title="설정">⚙</button>
-
-  <!-- 설정 모달 -->
-  <div class="modal-backdrop" id="settingsModal">
-    <div class="modal">
-      <h2>연결 설정</h2>
-      <div class="grid cols-3">
-        <div style="grid-column: span 3;">
-          <label>Apps Script 웹앱 URL</label>
-          <input id="cfgUrl" placeholder="예) https://script.google.com/macros/s/AKfycb.../exec" />
-        </div>
-        <div style="grid-column: span 3;">
-          <label>API Key (선택)</label>
-          <input id="cfgKey" placeholder="스크립트 속성에 설정한 값" />
-        </div>
-      </div>
-      <div class="row-end">
-        <button id="closeSettings">닫기</button>
-        <button class="primary" id="saveCfgBtn">저장</button>
-      </div>
-      <div class="status" id="cfgStatus"></div>
-    </div>
+  <!-- 우측 사이드바 -->
+  <div class="sidebar">
+    <h2>📌 최근 정비</h2>
+    <div class="recent" id="recentBox">아직 데이터 없음</div>
   </div>
 
   <script>
@@ -160,130 +135,105 @@
       el.style.color = type==='error' ? '#fca5a5' : (type==='ok' ? '#86efac' : '#94a3b8');
     }
 
-    // === 설정 저장/불러오기 ===
     function loadConfig(){
-      return {
-        url: localStorage.getItem('carlog:url') || '',
-        key: localStorage.getItem('carlog:key') || ''
-      };
-    }
-    function saveConfig({url, key}){
-      localStorage.setItem('carlog:url', (url||'').trim());
-      localStorage.setItem('carlog:key', (key||'').trim());
+      return { url: localStorage.getItem('carlog:url')||'', key: localStorage.getItem('carlog:key')||'' };
     }
 
-    function openSettings(){
-      const {url,key} = loadConfig();
-      qs('#cfgUrl').value = url;
-      qs('#cfgKey').value = key;
-      qs('#settingsModal').style.display = 'flex';
-      setStatus(qs('#cfgStatus'), '브라우저에만 저장됩니다.');
-    }
-    function closeSettings(){ qs('#settingsModal').style.display = 'none'; }
-
-    // === 폼 직렬화 ===
     function serializeForm(){
       const d = qs('#fDate').value;
       const item = qs('#fItem').value.trim();
-      const odo = qs('#fOdo').value;
-      const cost = qs('#fCost').value;
-      const reason = qs('#fReason').value.trim();
-      const note = qs('#fNote').value.trim();
-      const ref = qs('#fRef').value.trim();
-      const next = qs('#fNext').value.trim();
       if(!d || !item) throw new Error('날짜와 항목은 필수입니다.');
-      const dateStr = new Date(d).toISOString().slice(0,10);
-      const {key} = loadConfig();
       return {
-        apiKey: key || undefined,
-        '날짜': dateStr,
-        '키로수': odo || '',
+        apiKey: loadConfig().key || undefined,
+        '날짜': new Date(d).toISOString().slice(0,10),
+        '키로수': qs('#fOdo').value,
         '항목': item,
-        '금액': cost || '',
-        '비고': note,
-        '사유': reason,
-        '참고사항': ref,
-        '정비 예정 사항': next,
+        '금액': qs('#fCost').value,
+        '비고': qs('#fNote').value.trim(),
+        '사유': qs('#fReason').value.trim(),
+        '참고사항': qs('#fRef').value.trim(),
+        '정비 예정 사항': qs('#fNext').value.trim(),
       };
     }
 
     async function addEntry(){
-      setStatus(qs('#formStatus'),'저장 중...');
-      qs('#addBtn').disabled = true;
       try{
         const {url} = loadConfig();
-        if(!url) throw new Error('설정에서 웹앱 URL을 먼저 저장하세요. (오른쪽 아래 ⚙)');
+        if(!url) throw new Error('URL 설정 필요');
         const body = serializeForm();
-        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body)});
+        setStatus(qs('#formStatus'),'저장 중...');
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(body)});
         const data = await res.json();
-        if(!data.ok) throw new Error(data.error || '저장 실패');
-        setStatus(qs('#formStatus'),'저장 완료!','ok');
+        if(!data.ok) throw new Error(data.error);
+        setStatus(qs('#formStatus'),'저장 완료','ok');
         qsa('input[type="text"], input[type="number"], textarea').forEach(el=> el.value='');
-        await loadEntries();
-      }catch(err){ setStatus(qs('#formStatus'),'저장 실패: '+err.message,'error'); }
-      finally{ qs('#addBtn').disabled = false; }
+        loadEntries();
+      }catch(e){ setStatus(qs('#formStatus'),'저장 실패: '+e.message,'error'); }
     }
 
-    function fmtMoney(x){ if(!x) return ''; const n = Number(String(x).replace(/[^\d.-]/g,'')); return isNaN(n) ? x : n.toLocaleString('ko-KR'); }
-    function fmtDate(v){ if(!v) return ''; const d = new Date(v); return isNaN(d) ? v : d.toISOString().slice(0,10); }
+    function fmtMoney(x){ if(!x) return ''; const n=Number(x); return isNaN(n)?x:n.toLocaleString('ko-KR'); }
+    function fmtDate(v){ if(!v) return ''; const d=new Date(v); return isNaN(d)?v:d.toISOString().slice(0,10); }
 
     async function loadEntries(){
-      const tbody = qs('#table tbody');
-      tbody.innerHTML = '';
-      qs('#count').textContent = '0';
+      const {url}=loadConfig();
+      if(!url) return;
       try{
-        const {url,key} = loadConfig();
-        if(!url) throw new Error('설정에서 웹앱 URL을 먼저 저장하세요. (오른쪽 아래 ⚙)');
-        const res = await fetch(url + '?list=1');
-        const data = await res.json();
-        if(!data.ok) throw new Error(data.error || '목록 불러오기 실패');
-        const rows = data.data || [];
-        qs('#count').textContent = rows.length;
-        rows.forEach(r=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="nowrap">${fmtDate(r['날짜'])}</td>
-            <td class="nowrap">${r['키로수'] ?? ''}</td>
-            <td>${r['항목'] ?? ''}</td>
-            <td class="right">${fmtMoney(r['금액'])}</td>
-            <td>${r['비고'] ?? ''}</td>
-            <td>${r['사유'] ?? ''}</td>
-            <td>${r['참고사항'] ?? ''}</td>
-            <td>${r['정비 예정 사항'] ?? ''}</td>`;
+        const res=await fetch(url+'?list=1');
+        const data=await res.json();
+        const rows=data.data||[];
+        const tbody=qs('#table tbody');
+        tbody.innerHTML='';
+        qs('#count').textContent=rows.length;
+        rows.forEach((r,i)=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`<td><input type='checkbox' data-idx='${i}'></td>
+            <td>${fmtDate(r['날짜'])}</td>
+            <td>${r['키로수']||''}</td>
+            <td>${r['항목']||''}</td>
+            <td class='right'>${fmtMoney(r['금액'])}</td>
+            <td>${r['비고']||''}</td>
+            <td>${r['사유']||''}</td>
+            <td>${r['참고사항']||''}</td>
+            <td>${r['정비 예정 사항']||''}</td>`;
           tbody.appendChild(tr);
         });
-        setStatus(qs('#formStatus'),'불러오기 완료','ok');
-      }catch(err){ setStatus(qs('#formStatus'),'불러오기 실패: '+err.message,'error'); }
+        // 최근 항목 표시
+        if(rows.length>0){
+          const last=rows[rows.length-1];
+          qs('#recentBox').textContent=`${fmtDate(last['날짜'])} • ${last['키로수']||''}km • ${last['항목']}`;
+        }
+      }catch(e){ setStatus(qs('#formStatus'),'불러오기 실패: '+e.message,'error'); }
     }
 
-    function exportCSV(){
-      const rows = [["날짜","키로수","항목","금액","비고","사유","참고사항","정비 예정 사항"]];
-      qsa('#table tbody tr').forEach(tr=>{ const cols = qsa('td', tr).map(td=> '"'+ td.textContent.replaceAll('"','""') +'"'); rows.push(cols); });
-      const csv = rows.map(r=> r.join(',')).join('\n');
-      const blob = new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = '차계부_정비내역.csv'; a.click(); URL.revokeObjectURL(a.href);
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      qs('#addBtn').addEventListener('click', addEntry);
-      qs('#loadBtn').addEventListener('click', loadEntries);
-      qs('#exportBtn').addEventListener('click', exportCSV);
-      qs('#openSettings').addEventListener('click', openSettings);
-      qs('#closeSettings').addEventListener('click', closeSettings);
-      qs('#saveCfgBtn').addEventListener('click', ()=>{
-        saveConfig({ url: qs('#cfgUrl').value, key: qs('#cfgKey').value });
-        setStatus(qs('#cfgStatus'),'설정이 저장되었습니다.','ok');
-        setTimeout(closeSettings, 600);
+    async function deleteSelected(){
+      const checked=qsa('#table tbody input[type=checkbox]:checked');
+      if(checked.length===0){ alert('삭제할 항목을 선택하세요'); return; }
+      if(!confirm('정말 삭제하시겠습니까?')) return;
+      const {url}=loadConfig();
+      try{
+        for(const cb of checked){
+          const idx=parseInt(cb.dataset.idx)+2; // 헤더 고려해서 +2
+          await fetch(url+'?deleteRow='+idx, {method:'POST'});
+        }
         loadEntries();
+      }catch(e){ alert('삭제 실패: '+e.message); }
+    }
+
+    window.addEventListener('DOMContentLoaded',()=>{
+      qs('#addBtn').addEventListener('click',addEntry);
+      qs('#loadBtn').addEventListener('click',loadEntries);
+      qs('#deleteBtn').addEventListener('click',deleteSelected);
+      qs('#exportBtn').addEventListener('click',()=>{
+        const rows=[["날짜","키로수","항목","금액","비고","사유","참고사항","정비 예정 사항"]];
+        qsa('#table tbody tr').forEach(tr=>{const cols=qsa('td',tr).slice(1).map(td=> '"'+td.textContent+'"'); rows.push(cols);});
+        const csv=rows.map(r=>r.join(',')).join('\n');
+        const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
+        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='차계부_정비내역.csv'; a.click();
       });
-
-      // 첫 방문 시 설정 안내 모달 자동 표시 (URL 없으면)
-      if(!localStorage.getItem('carlog:url')){
-        openSettings();
-      } else {
-        loadEntries();
-      }
+      qs('#checkAll').addEventListener('change',e=>{
+        qsa('#table tbody input[type=checkbox]').forEach(cb=>cb.checked=e.target.checked);
+      });
+      if(localStorage.getItem('carlog:url')) loadEntries();
     });
   </script>
 </body>
