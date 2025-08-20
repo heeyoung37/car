@@ -9,7 +9,7 @@
     *{ box-sizing: border-box; }
     body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; background:var(--bg); color:var(--ink); }
     header{ padding:20px; border-bottom:1px solid #1f2937; position:sticky; top:0; background:linear-gradient(180deg,#0f172a 0%, rgba(15,23,42,0.9) 100%); backdrop-filter: blur(6px); z-index:10; }
-    h1{ margin:0 0 8px; font-size:20px; letter-spacing:0.3px; }
+    h1{ margin:0; font-size:20px; letter-spacing:0.3px; }
     .container{ max-width:1000px; margin:20px auto; padding:0 16px 40px; }
     .card{ background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
     .grid{ display:grid; gap:12px; }
@@ -32,36 +32,17 @@
     .pill{ padding:2px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:var(--muted); }
     .right{ text-align:right; }
     .nowrap{ white-space:nowrap; }
+    .hidden{ display:none; }
   </style>
 </head>
 <body>
   <header>
     <div class="container">
       <h1>🚗 차계부 정비내역 • 클라우드 저장</h1>
-      <div class="help">아래 설정에 Apps Script 웹앱 URL을 넣으면 <b>추가</b> 버튼으로 구글시트에 자동 저장됩니다.</div>
     </div>
   </header>
 
   <main class="container">
-    <!-- 설정 카드 -->
-    <section class="card" style="margin-bottom:16px;">
-      <div class="grid cols-3">
-        <div>
-          <label>https://script.google.com/macros/s/AKfycbyODcZ-GO_DerFcwvEF3EqriI8rZgMRxnAsb73q5WQiBhPfDWxA_KmZwo_35bOcc-Pn/exec</label>
-          <input id="cfgUrl" placeholder="예) https://script.google.com/macros/s/AKfycb.../exec" />
-        </div>
-        <div>
-          <label>API Key (선택)</label>
-          <input id="cfgKey" placeholder="스크립트 속성에 설정한 값" />
-        </div>
-        <div class="row" style="align-items:flex-end;">
-          <button class="primary" id="saveCfgBtn">설정 저장</button>
-          <span class="help">브라우저에만 저장됩니다.</span>
-        </div>
-      </div>
-      <div class="status" id="cfgStatus"></div>
-    </section>
-
     <!-- 입력 폼 -->
     <section class="card" style="margin-bottom:16px;">
       <div class="grid cols-3">
@@ -106,7 +87,7 @@
         <button class="primary" id="addBtn">추가</button>
         <button id="loadBtn">목록 새로고침</button>
         <button id="exportBtn">CSV 내보내기</button>
-        <span class="help">※ 저장이 안되면 설정의 URL이 맞는지, 웹앱 <b>권한</b>이 "모두"인지 확인하세요.</span>
+        <span class="help">※ 저장이 안되면 Apps Script 웹앱 URL 및 권한 설정을 확인하세요.</span>
       </div>
       <div class="status" id="formStatus"></div>
     </section>
@@ -114,7 +95,7 @@
     <!-- 목록 -->
     <section class="card">
       <div class="row" style="justify-content:space-between; margin-bottom:8px;">
-        <div class="help">시트의 헤더(1행)는 다음과 일치해야 합니다: <b>날짜, 키로수, 항목, 금액, 비고, 사유, 참고사항, 정비 예정 사항</b></div>
+        <div class="help">시트의 헤더(1행)는 <b>날짜, 키로수, 항목, 금액, 비고, 사유, 참고사항, 정비 예정 사항</b> 순서여야 합니다.</div>
         <div class="pill"><span id="count">0</span> 건</div>
       </div>
       <div style="overflow:auto;">
@@ -141,33 +122,9 @@
     const qs = (s,root=document)=> root.querySelector(s);
     const qsa = (s,root=document)=> [...root.querySelectorAll(s)];
 
-    const store = {
-      load(){
-        return {
-          url: localStorage.getItem('carlog:url') || '',
-          key: localStorage.getItem('carlog:key') || ''
-        }
-      },
-      save({url,key}){
-        localStorage.setItem('carlog:url', url || '');
-        localStorage.setItem('carlog:key', key || '');
-      }
-    }
-
     function setStatus(el,msg,type='info'){
       el.textContent = msg;
       el.style.color = type==='error' ? '#fca5a5' : (type==='ok' ? '#86efac' : '#94a3b8');
-    }
-
-    function getConfig(){
-      const {url,key} = store.load();
-      return { url: url.trim(), key: key.trim() };
-    }
-
-    function fillConfigInputs(){
-      const {url,key} = getConfig();
-      qs('#cfgUrl').value = url;
-      qs('#cfgKey').value = key;
     }
 
     function serializeForm(){
@@ -180,14 +137,10 @@
       const ref = qs('#fRef').value.trim();
       const next = qs('#fNext').value.trim();
 
-      // 필수값
       if(!d || !item) throw new Error('날짜와 항목은 필수입니다.');
-
-      // 날짜를 시트가 읽기 쉬운 YYYY-MM-DD로
       const dateStr = new Date(d).toISOString().slice(0,10);
 
       return {
-        apiKey: getConfig().key || undefined,
         '날짜': dateStr,
         '키로수': odo || '',
         '항목': item,
@@ -200,23 +153,21 @@
     }
 
     async function addEntry(){
-      const cfg = getConfig();
-      if(!cfg.url){ setStatus(qs('#formStatus'),'설정에서 Apps Script 웹앱 URL을 먼저 저장하세요.','error'); return; }
       const body = serializeForm();
       setStatus(qs('#formStatus'),'저장 중...');
       qs('#addBtn').disabled = true;
       try{
-        const res = await fetch(cfg.url, {
+        const url = localStorage.getItem('carlog:url');
+        if(!url) throw new Error('Apps Script 웹앱 URL이 설정되지 않았습니다.');
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
-        const data = await res.json().catch(()=>({ok:false,error:'응답 파싱 실패'}));
-        if(!res.ok || !data.ok){ throw new Error(data.error || ('HTTP '+res.status)); }
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error || '저장 실패');
         setStatus(qs('#formStatus'),'저장 완료!','ok');
-        // 폼 리셋
         qsa('input[type="text"], input[type="number"], textarea').forEach(el=> el.value='');
-        // 날짜는 유지
         await loadEntries();
       }catch(err){
         setStatus(qs('#formStatus'),'저장 실패: '+err.message,'error');
@@ -226,48 +177,42 @@
     }
 
     function fmtMoney(x){
-      if(x===null || x===undefined || x==='') return '';
-      const n = Number(String(x).replace(/[^\d.-]/g,''));
-      if(!isFinite(n)) return String(x);
-      return n.toLocaleString('ko-KR');
+      if(!x) return '';
+      const n = Number(x);
+      return isNaN(n) ? x : n.toLocaleString('ko-KR');
     }
 
     function fmtDate(v){
       if(!v) return '';
-      try{
-        const d = new Date(v);
-        if(isNaN(d)) return String(v);
-        return d.toISOString().slice(0,10);
-      }catch{ return String(v); }
+      const d = new Date(v);
+      return isNaN(d) ? v : d.toISOString().slice(0,10);
     }
 
     async function loadEntries(){
-      const cfg = getConfig();
       const tbody = qs('#table tbody');
       tbody.innerHTML = '';
       qs('#count').textContent = '0';
-      if(!cfg.url){ setStatus(qs('#formStatus'),'설정에서 Apps Script 웹앱 URL을 먼저 저장하세요.','error'); return; }
-      setStatus(qs('#formStatus'),'불러오는 중...');
       try{
-        const res = await fetch(cfg.url + '?list=1',{ method:'GET' });
+        const url = localStorage.getItem('carlog:url');
+        if(!url) throw new Error('Apps Script 웹앱 URL이 설정되지 않았습니다.');
+        const res = await fetch(url+'?list=1');
         const data = await res.json();
-        if(!data || !data.ok) throw new Error(data?.error || '목록 응답 오류');
+        if(!data.ok) throw new Error(data.error || '목록 불러오기 실패');
         const rows = data.data || [];
         qs('#count').textContent = rows.length;
-        for(const r of rows){
+        rows.forEach(r=>{
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="nowrap">${fmtDate(r['날짜'])}</td>
-            <td class="nowrap">${r['키로수'] ?? ''}</td>
-            <td>${r['항목'] ?? ''}</td>
+            <td class="nowrap">${r['키로수']}</td>
+            <td>${r['항목']}</td>
             <td class="right">${fmtMoney(r['금액'])}</td>
-            <td>${r['비고'] ?? ''}</td>
-            <td>${r['사유'] ?? ''}</td>
-            <td>${r['참고사항'] ?? ''}</td>
-            <td>${r['정비 예정 사항'] ?? ''}</td>
-          `;
+            <td>${r['비고']}</td>
+            <td>${r['사유']}</td>
+            <td>${r['참고사항']}</td>
+            <td>${r['정비 예정 사항']}</td>`;
           tbody.appendChild(tr);
-        }
+        });
         setStatus(qs('#formStatus'),'불러오기 완료','ok');
       }catch(err){
         setStatus(qs('#formStatus'),'불러오기 실패: '+err.message,'error');
@@ -277,7 +222,7 @@
     function exportCSV(){
       const rows = [["날짜","키로수","항목","금액","비고","사유","참고사항","정비 예정 사항"]];
       qsa('#table tbody tr').forEach(tr=>{
-        const cols = qsa('td', tr).map(td=> '"'+ String(td.textContent).replaceAll('"','""') +'"');
+        const cols = qsa('td', tr).map(td=> '"'+ td.textContent.replaceAll('"','""') +'"');
         rows.push(cols);
       });
       const csv = rows.map(r=> r.join(',')).join('\n');
@@ -289,20 +234,12 @@
       URL.revokeObjectURL(a.href);
     }
 
-    // 이벤트 바인딩
     window.addEventListener('DOMContentLoaded', () => {
-      fillConfigInputs();
-      qs('#saveCfgBtn').addEventListener('click', ()=>{
-        store.save({ url: qs('#cfgUrl').value, key: qs('#cfgKey').value });
-        setStatus(qs('#cfgStatus'),'설정이 저장되었습니다.','ok');
-      });
       qs('#addBtn').addEventListener('click', addEntry);
       qs('#loadBtn').addEventListener('click', loadEntries);
       qs('#exportBtn').addEventListener('click', exportCSV);
 
-      // 자동 로드
-      const {url} = getConfig();
-      if(url) loadEntries();
+      if(localStorage.getItem('carlog:url')) loadEntries();
     });
   </script>
 </body>
